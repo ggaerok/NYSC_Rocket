@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>목표지점까지의 거리와 발사 방향 계산</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;900&display=swap');
+
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    padding: 40px 60px 80px;
+    background:#ffffff;
+    font-family:'Noto Sans KR', sans-serif;
+    color:#1a1a1a;
+  }
+
+  /* 제목 배너 */
+  .title-banner{
+    background:#F5A623;
+    border-radius:6px;
+    padding: 22px 20px;
+    text-align:center;
+    margin-bottom: 40px;
+  }
+  .title-banner p{
+    margin:0;
+    font-weight:700;
+    font-size:22px;
+    line-height:1.5;
+    color:#1a1a1a;
+  }
+
+  /* 0단계 태그 */
+  .stage-tag{
+    display:inline-block;
+    background:#F5A623;
+    color:#1a1a1a;
+    font-weight:700;
+    font-size:19px;
+    padding: 6px 16px;
+    border-radius:4px;
+    margin-bottom: 30px;
+  }
+
+  /* 좌표 영역 */
+  .points{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 70px;
+  }
+  .point-col{
+    min-width: 0;
+  }
+  .point-col h3{
+    font-size:19px;
+    font-weight:700;
+    margin: 0 0 14px;
+  }
+
+  .coord-block{
+    margin-bottom: 26px;
+  }
+  .coord-block .axis-label{
+    font-size:20px;
+    font-weight:700;
+    margin: 0 0 10px;
+  }
+  .coord-block .diff-label{
+    font-size:18px;
+    font-weight:700;
+    margin: 0 0 4px;
+  }
+
+  .dms-row{
+    display:flex;
+    align-items:center;
+    gap: 4px;
+  }
+  .dms-field{
+    position:relative;
+    display:flex;
+    align-items:center;
+  }
+  .dms-field input{
+    width: 64px;
+    height: 52px;
+    border-radius: 6px;
+    border: 3px solid var(--box-color, #F5A623);
+    background:#ffffff;
+    text-align:center;
+    font-size:22px;
+    font-weight:700;
+    font-family:'Noto Sans KR', sans-serif;
+    color:#1a1a1a;
+    outline:none;
+    padding:0;
+    -moz-appearance: textfield;
+  }
+  .dms-field input[data-unit="sec"]{
+    width: 84px;
+    font-size: 19px;
+  }
+  .dms-field input::-webkit-outer-spin-button,
+  .dms-field input::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
+  }
+  .dms-field input:focus{
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.12);
+  }
+  .dms-field input::placeholder{
+    font-size:11px;
+    font-weight:500;
+    color:#9a9a9a;
+    opacity:1;
+  }
+  .dms-field .mark{
+    font-size:22px;
+    font-weight:700;
+    margin: 0 6px 0 4px;
+    color:#1a1a1a;
+    align-self:flex-start;
+    margin-top: 2px;
+  }
+
+  /* 파란색 계열 (B 지점) */
+  .blue .dms-field input{ --box-color:#A9C7E8; }
+
+  /* 노란색 계열 (A 지점) */
+  .yellow .dms-field input{ --box-color:#F5A623; }
+
+  /* 초록색 계열 (C 지점) */
+  .green .dms-field input{ --box-color:#8FCB8A; }
+
+  .dms-field input[readonly]{
+    cursor:default;
+    background:#ffffff;
+  }
+  .dms-field input[readonly]:focus{
+    box-shadow:none;
+  }
+
+  /* 단계 구획 */
+  .stage-section{
+    margin-bottom: 54px;
+  }
+  .stage-section:last-child{
+    margin-bottom: 0;
+  }
+
+  /* ---- 3단계: 공식 + 다이어그램 ---- */
+  .formula-line{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap: 8px;
+    font-size: 19px;
+    font-weight: 700;
+    margin: 6px 0;
+  }
+  .formula-box{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width: 130px;
+    height: 40px;
+    padding: 0 10px;
+    border: 3px solid #A9C7E8;
+    border-radius: 6px;
+    background:#ffffff;
+    font-family:'Noto Sans KR', sans-serif;
+    font-weight:700;
+    font-size: 18px;
+    color:#1a1a1a;
+  }
+
+  .diagram-wrap{
+    display:flex;
+    gap: 44px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    margin-top: 28px;
+  }
+
+  .diagram-box{
+    position:relative;
+    width: 380px;
+    height: 232px;
+    background:#ffffff;
+    border: 2.5px solid #000000;
+    border-radius:4px;
+    overflow:hidden;
+    flex-shrink:0;
+    box-sizing:border-box;
+  }
+  .diagram-box svg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+  }
+  .pt-label{
+    position:absolute;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    color:#111;
+    white-space:nowrap;
+    z-index: 2;
+  }
+  .pt-label.pink{ background:#EF8FCB; }
+  .pt-label.cyan{ background:#78DCEA; }
+  .c-bar{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    background:#ffffff;
+    color:#000000;
+    text-align:left;
+    padding: 9px 0 9px 50px;
+    font-weight:700;
+    font-size: 13px;
+    z-index: 2;
+    box-sizing:border-box;
+  }
+
+  .distance-col{
+    display:flex;
+    flex-direction:column;
+    gap: 20px;
+    padding-top: 6px;
+  }
+  .distance-row{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    font-size: 19px;
+    font-weight: 700;
+  }
+  .distance-row .seg{
+    text-decoration: overline;
+    text-decoration-thickness: 2.5px;
+    min-width: 30px;
+  }
+  .distance-row .box{
+    width: 150px;
+    height: 40px;
+    border: 3px solid #E05252;
+    border-radius: 6px;
+    background:#ffffff;
+    font-family:'Noto Sans KR', sans-serif;
+    font-weight:700;
+    font-size: 17px;
+    text-align:center;
+    color:#1a1a1a;
+    padding:0 6px;
+  }
+  .distance-row.ab .seg{ color:#E0A21E; }
+  .distance-row.ab .box{ border-color:#8FCB8A; }
+
+  /* ---- 4단계 ---- */
+  .stage4-subtitle{
+    font-size:19px;
+    font-weight:700;
+    margin: 0 0 22px;
+  }
+  .cos-formula{
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    margin-bottom: 30px;
+    flex-wrap:wrap;
+  }
+  .cos-formula .expr{
+    font-size:22px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .cos-formula .frac{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
+    font-size:17px;
+    font-weight:700;
+    line-height:1.15;
+  }
+  .frac{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
+    font-size:17px;
+    font-weight:700;
+    line-height:1.15;
+  }
+  .frac .num{
+    border-bottom: 2px solid #1a1a1a;
+    padding: 0 2px 2px;
+    text-decoration: overline;
+    text-decoration-thickness:2px;
+  }
+  .frac .den{
+    padding-top: 2px;
+    text-decoration: overline;
+    text-decoration-thickness:2px;
+  }
+  .frac-boxes{
+    display:flex;
+    flex-direction:column;
+    gap: 8px;
+  }
+  .stage4-box{
+    width: 130px;
+    height: 40px;
+    border-radius: 6px;
+    background:#ffffff;
+    font-family:'Noto Sans KR', sans-serif;
+    font-weight:700;
+    font-size: 17px;
+    text-align:center;
+    color:#1a1a1a;
+    padding:0 6px;
+  }
+  .stage4-box.red{ border: 3px solid #E05252; }
+  .stage4-box.green{ border: 3px solid #8FCB8A; }
+  .stage4-box.blue{ border: 3px solid #A9C7E8; }
+
+  .theta-line{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    font-size:22px;
+    font-weight:700;
+    margin-bottom: 34px;
+  }
+
+  .result-box{
+    border: 2.5px solid #1a1a1a;
+    border-radius: 6px;
+    padding: 22px 26px;
+    max-width: 480px;
+    text-align:center;
+    font-size: 19px;
+    font-weight: 700;
+    line-height:2;
+  }
+  .result-box .stage4-box.blue{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    vertical-align:middle;
+    margin: 0 4px;
+  }
+
+  /* ---------- 3단계: 계산식 ---------- */
+  .formula-block{ margin-bottom: 26px; }
+  .formula-line{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    font-size:19px;
+    font-weight:700;
+    color:#1a1a1a;
+    margin: 0 0 14px;
+    line-height:1.6;
+  }
+  .formula-line i{ font-style:italic; }
+  .unit-suffix{ font-weight:700; }
+
+  .calc-box{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:3px solid var(--calc-color, #A9C7E8);
+    border-radius:6px;
+    background:#ffffff;
+    padding: 3px 8px;
+  }
+  .calc-box input{
+    border:none;
+    outline:none;
+    background:transparent;
+    font-weight:700;
+    font-size:18px;
+    text-align:center;
+    width: 120px;
+    font-family:'Noto Sans KR', sans-serif;
+    color:#1a1a1a;
+    cursor:default;
+  }
+  .calc-box.blue{ --calc-color:#A9C7E8; }
+  .calc-box.red{ --calc-color:#E8544A; }
+  .calc-box.green{ --calc-color:#8FCB8A; }
+
+  /* ---------- 3단계: 도형 + 결과 ---------- */
+  .triangle-wrap{
+    display:flex;
+    align-items:flex-start;
+    gap: 40px;
+    flex-wrap:wrap;
+  }
+  .diagram-frame{
+    border: 3px solid #1a1a1a;
+    border-radius: 4px;
+    background:#ffffff;
+    width: 400px;
+    max-width:100%;
+    flex-shrink:0;
+  }
+  .diagram-frame svg{ display:block; width:100%; height:auto; }
+
+  .triangle-results{
+    display:flex;
+    flex-direction:column;
+    gap: 22px;
+    padding-top: 10px;
+  }
+  .result-line{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:19px;
+    font-weight:700;
+    color:#1a1a1a;
+    margin:0;
+  }
+  .result-line .ab-label{
+    color:#E8A23B;
+    font-weight:800;
+    text-decoration: underline;
+    text-underline-offset:3px;
+  }
+  .result-line .calc-box input{ width:100px; }
+</style>
+</head>
+<body>
+
+  <div class="title-banner">
+    <p>목표지점까지의 거리와<br>발사체의 발사 방향을 계산해 봅시다.</p>
+  </div>
+
+  <div class="stage-section">
+  <div class="stage-tag">0단계</div>
+
+  <div class="points">
+
+    <!-- A 지점 : 노랑 -->
+    <div class="point-col">
+      <h3>A 지점의 좌표</h3>
+
+      <div class="coord-block yellow">
+        <p class="axis-label">위도(N)</p>
+        <div class="dms-row">
+          <div class="dms-field">
+            <input type="text" inputmode="numeric" maxlength="3" data-point="A" data-axis="lat" data-unit="deg" data-min="0" data-max="180" data-decimals="0" placeholder="0~180">
+            <span class="mark">°</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" inputmode="numeric" maxlength="2" data-point="A" data-axis="lat" data-unit="min" data-min="0" data-max="59" data-decimals="0" placeholder="0~59">
+            <span class="mark">′</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" inputmode="decimal" maxlength="5" data-point="A" data-axis="lat" data-unit="sec" data-min="0" data-max="59.99" data-decimals="2" placeholder="0.00~59.99">
+            <span class="mark">″</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="coord-block yellow">
+        <p class="axis-label">경도(E)</p>
+        <div class="dms-row">
+          <div class="dms-field">
+            <input type="text" inputmode="numeric" maxlength="3" data-point="A" data-axis="lon" data-unit="deg" data-min="0" data-max="180" data-decimals="0" placeholder="0~180">
+            <span class="mark">°</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" inputmode="numeric" maxlength="2" data-point="A" data-axis="lon" data-unit="min" data-min="0" data-max="59" data-decimals="0" placeholder="0~59">
+            <span class="mark">′</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" inputmode="decimal" maxlength="5" data-point="A" data-axis="lon" data-unit="sec" data-min="0" data-max="59.99" data-decimals="2" placeholder="0.00~59.99">
+            <span class="mark">″</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B 지점 : 파랑 -->
+    <div class="point-col">
+      <h3>B 지점의 좌표</h3>
+
+      <div class="coord-block blue">
+        <p class="axis-label">위도(N)</p>
+        <div class="dms-row">
+          <div class="dms-field">
+            <input type="text" inputmode="numeric" maxlength="3" data-point="B" data-axis="lat" data-unit="deg" data-min="0" data-max="180" data-decimals="0" placeholder="0~180">
+            <span class="mark">°</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" inputmode="numeric" maxlength="2" data-point="B" data-axis="lat" data-unit="min" data-min="0" data-max="59" data-decimals="0" placeholder="0~59">
+            <span class="mark">′</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" inputmode="decimal" maxlength="5" data-point="B" data-axis="lat" data-unit="sec" data-min="0" data-max="59.99" data-decimals="2" placeholder="0.00~59.99">
+            <span class="mark">″</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="coord-block blue">
+        <p class="axis-label">경도(E)</p>
+        <div class="dms-row">
+          <div class="dms-field">
+            <input type="text" inputmode="numeric" maxlength="3" data-point="B" data-axis="lon" data-unit="deg" data-min="0" data-max="180" data-decimals="0" placeholder="0~180">
+            <span class="mark">°</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" inputmode="numeric" maxlength="2" data-point="B" data-axis="lon" data-unit="min" data-min="0" data-max="59" data-decimals="0" placeholder="0~59">
+            <span class="mark">′</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" inputmode="decimal" maxlength="5" data-point="B" data-axis="lon" data-unit="sec" data-min="0" data-max="59.99" data-decimals="2" placeholder="0.00~59.99">
+            <span class="mark">″</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+  <div class="stage-section">
+  <div class="stage-tag">1단계</div>
+
+  <div class="points">
+    <!-- C 지점 : 초록 (0단계 A위도 + B경도를 그대로 표시) -->
+    <div class="point-col">
+      <h3>C 지점의 좌표</h3>
+
+      <div class="coord-block green">
+        <p class="axis-label">위도(N)</p>
+        <div class="dms-row">
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="C" data-axis="lat" data-unit="deg">
+            <span class="mark">°</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="C" data-axis="lat" data-unit="min">
+            <span class="mark">′</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="C" data-axis="lat" data-unit="sec">
+            <span class="mark">″</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="coord-block green">
+        <p class="axis-label">경도(E)</p>
+        <div class="dms-row">
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="C" data-axis="lon" data-unit="deg">
+            <span class="mark">°</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="C" data-axis="lon" data-unit="min">
+            <span class="mark">′</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="C" data-axis="lon" data-unit="sec">
+            <span class="mark">″</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div class="stage-section">
+  <div class="stage-tag">2단계</div>
+
+  <div class="points">
+    <!-- B/C 위도 차이, A/C 경도 차이 (항상 양수) -->
+    <div class="point-col">
+
+      <div class="coord-block green">
+        <p class="diff-label">B지점과 C지점의 좌표 차이</p>
+        <p class="axis-label">위도(N)</p>
+        <div class="dms-row">
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="D" data-axis="BClat" data-unit="deg">
+            <span class="mark">°</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="D" data-axis="BClat" data-unit="min">
+            <span class="mark">′</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="D" data-axis="BClat" data-unit="sec">
+            <span class="mark">″</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="coord-block green">
+        <p class="diff-label">A지점과 C지점의 좌표 차이</p>
+        <p class="axis-label">경도(E)</p>
+        <div class="dms-row">
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="D" data-axis="AClon" data-unit="deg">
+            <span class="mark">°</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="D" data-axis="AClon" data-unit="min">
+            <span class="mark">′</span>
+          </div>
+          <div class="dms-field">
+            <input type="text" readonly tabindex="-1" data-point="D" data-axis="AClon" data-unit="sec">
+            <span class="mark">″</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  </div>
+
+  <div class="stage-section">
+  <div class="stage-tag">3단계</div>
+
+  <div class="formula-line">
+    위도 1° = 40,000km ÷ 360° =
+    <input type="text" class="formula-box" id="latMeterPerDeg" readonly tabindex="-1">
+    <span>m</span>
+  </div>
+  <div class="formula-line">
+    경도 1° = 40,000km ÷ 360° × cos(<i>A</i> 지점 위도) =
+    <input type="text" class="formula-box" id="lonMeterPerDeg" readonly tabindex="-1">
+    <span>m</span>
+  </div>
+
+  <div class="diagram-wrap">
+    <div class="diagram-box">
+      <svg viewBox="0 0 380 232" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#F5A623"/>
+          </marker>
+        </defs>
+
+        <!-- C-B 수직선 -->
+        <line x1="55" y1="188" x2="55" y2="40" stroke="#000000" stroke-width="3"/>
+        <!-- C-A 수평선 -->
+        <line x1="55" y1="188" x2="235" y2="188" stroke="#000000" stroke-width="3"/>
+        <!-- A-B 대각선 화살표 -->
+        <line x1="235" y1="188" x2="60" y2="45" stroke="#F5A623" stroke-width="4" marker-end="url(#arrowHead)"/>
+
+        <!-- 각 theta 쐐기 -->
+        <path d="M235,188 L203,188 Q219,177 209.5,168 Z" fill="#F6B8C4" opacity="0.9"/>
+        <text x="196" y="180" fill="#D8547A" font-size="15" font-weight="700" font-style="italic">θ</text>
+
+        <!-- 점 -->
+        <circle cx="55" cy="188" r="6" fill="#000000"/>
+        <circle cx="55" cy="40" r="6" fill="#EF8FCB"/>
+        <circle cx="235" cy="188" r="6" fill="#78DCEA"/>
+      </svg>
+
+      <div class="pt-label pink" style="top:16px; left:76px;">B( 위도, 경도 )</div>
+      <div class="pt-label cyan" style="top:122px; left:150px;">A( 위도, 경도 )</div>
+      <div class="c-bar">C( A의 위도, B의 경도 )</div>
+    </div>
+
+    <div class="distance-col">
+      <div class="distance-row ac">
+        <span class="seg">AC</span> =
+        <input type="text" class="box" readonly tabindex="-1" data-point="DIST" data-axis="AC">
+        <span>m</span>
+      </div>
+      <div class="distance-row bc">
+        <span class="seg">BC</span> =
+        <input type="text" class="box" readonly tabindex="-1" data-point="DIST" data-axis="BC">
+        <span>m</span>
+      </div>
+      <div class="distance-row ab">
+        <span class="seg">AB</span> =
+        <input type="text" class="box" readonly tabindex="-1" data-point="DIST" data-axis="AB">
+        <span>m</span>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div class="stage-section">
+  <div class="stage-tag">4단계</div>
+  <p class="stage4-subtitle">발사 방향 계산하기</p>
+
+  <div class="cos-formula">
+    <span class="expr">
+      cos θ =
+      <span class="frac"><span class="num">AC</span><span class="den">AB</span></span>
+      =
+    </span>
+    <div class="frac-boxes">
+      <input type="text" class="stage4-box red" readonly tabindex="-1" id="cosNumAC">
+      <input type="text" class="stage4-box green" readonly tabindex="-1" id="cosDenAB">
+    </div>
+  </div>
+
+  <div class="theta-line">
+    <span>
+      θ = cos⁻¹
+      <span class="frac" style="vertical-align:middle;"><span class="num">AC</span><span class="den">AB</span></span>
+      =
+    </span>
+    <input type="text" class="stage4-box blue" readonly tabindex="-1" id="thetaDeg">
+    <span>°</span>
+  </div>
+
+  <div class="result-box">
+    발사 방향은 정서쪽에서<br>
+    시계방향 <input type="text" class="stage4-box blue" readonly tabindex="-1" id="thetaDeg2">°만큼 이동한다.
+  </div>
+  </div>
+
+<script>
+  // 각 필드: 도(deg) 0~180 정수 / 분(min) 0.00~99.99 소수 / 초(sec) 0~59 정수
+  document.querySelectorAll('.dms-field input').forEach(input => {
+    const decimals = parseInt(input.dataset.decimals, 10);
+    const min = parseFloat(input.dataset.min);
+    const max = parseFloat(input.dataset.max);
+
+    // 입력 중: 허용 문자만 남기기 (정수 필드는 숫자만, 소수 필드는 숫자+점 1개)
+    input.addEventListener('input', () => {
+      if (decimals > 0) {
+        input.value = input.value.replace(/[^0-9.]/g, '');
+        const parts = input.value.split('.');
+        if (parts.length > 2) {
+          input.value = parts[0] + '.' + parts.slice(1).join('');
+        }
+        // 소수점 이하 자리수 제한
+        const p = input.value.split('.');
+        if (p[1] && p[1].length > decimals) {
+          input.value = p[0] + '.' + p[1].slice(0, decimals);
+        }
+      } else {
+        input.value = input.value.replace(/[^0-9]/g, '');
+      }
+    });
+
+    // 포커스를 벗어날 때 범위를 벗어나면 최소/최대값으로 보정
+    input.addEventListener('blur', () => {
+      if (input.value === '') return;
+      let val = parseFloat(input.value);
+      if (isNaN(val)) { input.value = ''; return; }
+      if (val < min) val = min;
+      if (val > max) val = max;
+      input.value = decimals > 0 ? val.toFixed(decimals) : String(Math.round(val));
+    });
+  });
+
+  // 1단계: C 지점 좌표 = 0단계의 A 지점 위도 + B 지점 경도를 그대로 표시
+  function syncPointC(){
+    ['deg', 'min', 'sec'].forEach(unit => {
+      const src = document.querySelector(`input[data-point="A"][data-axis="lat"][data-unit="${unit}"]`);
+      const dst = document.querySelector(`input[data-point="C"][data-axis="lat"][data-unit="${unit}"]`);
+      if (src && dst) dst.value = src.value;
+    });
+    ['deg', 'min', 'sec'].forEach(unit => {
+      const src = document.querySelector(`input[data-point="B"][data-axis="lon"][data-unit="${unit}"]`);
+      const dst = document.querySelector(`input[data-point="C"][data-axis="lon"][data-unit="${unit}"]`);
+      if (src && dst) dst.value = src.value;
+    });
+    computeStage2();
+  }
+
+  document.querySelectorAll(
+    'input[data-point="A"][data-axis="lat"], input[data-point="B"][data-axis="lon"]'
+  ).forEach(input => {
+    input.addEventListener('input', syncPointC);
+    input.addEventListener('blur', syncPointC);
+  });
+
+  // ---- 2단계: 실제 도(°)·분(′)·초(″) 단위로 뺄셈(자리 빌림 포함)하여 항상 양수로 표시 ----
+  function readDMS(point, axis){
+    const g = unit => document.querySelector(`input[data-point="${point}"][data-axis="${axis}"][data-unit="${unit}"]`);
+    const degEl = g('deg'), minEl = g('min'), secEl = g('sec');
+    if (!degEl || !minEl || !secEl) return null;
+    if (degEl.value === '' || minEl.value === '' || secEl.value === '') return null;
+    return {
+      deg: parseFloat(degEl.value) || 0,
+      min: parseFloat(minEl.value) || 0,
+      sec: parseFloat(secEl.value) || 0
+    };
+  }
+
+  function dmsToArcsec(d){
+    return d.deg * 3600 + d.min * 60 + d.sec;
+  }
+
+  function arcsecToDMS(totalArcsec){
+    totalArcsec = Math.round(Math.abs(totalArcsec) * 100) / 100; // 0.01초 단위로 반올림
+    let deg = Math.floor(totalArcsec / 3600);
+    let rem = totalArcsec - deg * 3600;
+    let min = Math.floor(rem / 60);
+    let sec = Math.round((rem - min * 60) * 100) / 100;
+    if (sec >= 60) { sec -= 60; min += 1; }
+    if (min >= 60) { min -= 60; deg += 1; }
+    return { deg, min, sec };
+  }
+
+  function writeDMS(point, axis, dms){
+    const g = unit => document.querySelector(`input[data-point="${point}"][data-axis="${axis}"][data-unit="${unit}"]`);
+    if (!dms){
+      ['deg','min','sec'].forEach(u => { const el = g(u); if (el) el.value = ''; });
+      return;
+    }
+    g('deg').value = String(dms.deg);
+    g('min').value = String(dms.min);
+    g('sec').value = dms.sec.toFixed(2);
+  }
+
+  function computeStage2(){
+    // B지점과 C지점의 위도 차이 (항상 양수)
+    const bLat = readDMS('B', 'lat');
+    const cLat = readDMS('C', 'lat');
+    if (bLat && cLat){
+      const diff = dmsToArcsec(bLat) - dmsToArcsec(cLat);
+      writeDMS('D', 'BClat', arcsecToDMS(diff));
+    } else {
+      writeDMS('D', 'BClat', null);
+    }
+
+    // A지점과 C지점의 경도 차이 (항상 양수)
+    const aLon = readDMS('A', 'lon');
+    const cLon = readDMS('C', 'lon');
+    if (aLon && cLon){
+      const diff = dmsToArcsec(aLon) - dmsToArcsec(cLon);
+      writeDMS('D', 'AClon', arcsecToDMS(diff));
+    } else {
+      writeDMS('D', 'AClon', null);
+    }
+
+    computeDistances();
+  }
+
+  document.querySelectorAll(
+    'input[data-point="B"][data-axis="lat"], input[data-point="A"][data-axis="lon"]'
+  ).forEach(input => {
+    input.addEventListener('input', computeStage2);
+    input.addEventListener('blur', computeStage2);
+  });
+
+  syncPointC();
+
+  // ---- 3단계: 위도 1°, 경도 1°(cos 보정)의 미터 환산 ----
+  const EARTH_CIRCUMFERENCE_M = 40000 * 1000; // 지구 둘레 약 40,000km
+  const LAT_METER_PER_DEG = EARTH_CIRCUMFERENCE_M / 360; // 항상 고정값
+
+  function computeStage3(){
+    // 첫 번째 파란 박스: 위도 1° = 40,000km ÷ 360° (고정값)
+    document.getElementById('latMeterPerDeg').value = LAT_METER_PER_DEG.toFixed(2);
+
+    // 두 번째 파란 박스: 경도 1° = 40,000km ÷ 360° × cos(A 지점 위도, 도+분만 사용)
+    const aDeg = document.querySelector('input[data-point="A"][data-axis="lat"][data-unit="deg"]');
+    const aMin = document.querySelector('input[data-point="A"][data-axis="lat"][data-unit="min"]');
+    const lonBox = document.getElementById('lonMeterPerDeg');
+
+    if (aDeg && aMin && aDeg.value !== '' && aMin.value !== ''){
+      const latDecimal = parseFloat(aDeg.value) + (parseFloat(aMin.value) / 60);
+      const lonMeterPerDeg = LAT_METER_PER_DEG * Math.cos(latDecimal * Math.PI / 180);
+      lonBox.value = lonMeterPerDeg.toFixed(2);
+    } else {
+      lonBox.value = '';
+    }
+
+    computeDistances();
+  }
+
+  document.querySelectorAll(
+    'input[data-point="A"][data-axis="lat"][data-unit="deg"], input[data-point="A"][data-axis="lat"][data-unit="min"]'
+  ).forEach(input => {
+    input.addEventListener('input', computeStage3);
+    input.addEventListener('blur', computeStage3);
+  });
+
+  // AC = (경도 1°의 m값 ÷ 3600) × (A-C 경도 차이의 각초 값)
+  // BC = (위도 1°의 m값 ÷ 3600) × (B-C 위도 차이의 각초 값)
+  // ※ 2단계 결과는 각도·각분이 대부분 0이므로 각초 값만 사용
+  function computeDistances(){
+    const lonPerDeg = parseFloat(document.getElementById('lonMeterPerDeg').value);
+    const acSecEl = document.querySelector('input[data-point="D"][data-axis="AClon"][data-unit="sec"]');
+    const bcSecEl = document.querySelector('input[data-point="D"][data-axis="BClat"][data-unit="sec"]');
+    const acBox = document.querySelector('input[data-point="DIST"][data-axis="AC"]');
+    const bcBox = document.querySelector('input[data-point="DIST"][data-axis="BC"]');
+
+    if (!isNaN(lonPerDeg) && acSecEl && acSecEl.value !== ''){
+      const ac = (lonPerDeg / 3600) * parseFloat(acSecEl.value);
+      acBox.value = ac.toFixed(2);
+    } else if (acBox) {
+      acBox.value = '';
+    }
+
+    if (bcSecEl && bcSecEl.value !== ''){
+      const bc = (LAT_METER_PER_DEG / 3600) * parseFloat(bcSecEl.value);
+      bcBox.value = bc.toFixed(2);
+    } else if (bcBox) {
+      bcBox.value = '';
+    }
+
+    // AB = 피타고라스 정리 (AC, BC를 각각 제곱하여 더한 뒤 루트)
+    const abBox = document.querySelector('input[data-point="DIST"][data-axis="AB"]');
+    if (acBox && bcBox && acBox.value !== '' && bcBox.value !== ''){
+      const ac = parseFloat(acBox.value);
+      const bc = parseFloat(bcBox.value);
+      const ab = Math.sqrt(ac * ac + bc * bc);
+      abBox.value = ab.toFixed(2);
+    } else if (abBox) {
+      abBox.value = '';
+    }
+
+    computeStage4();
+  }
+
+  // ---- 4단계: cosθ = AC/AB, θ = cos⁻¹(AC/AB) ----
+  function computeStage4(){
+    const acBox = document.querySelector('input[data-point="DIST"][data-axis="AC"]');
+    const abBox = document.querySelector('input[data-point="DIST"][data-axis="AB"]');
+    const cosNum = document.getElementById('cosNumAC');
+    const cosDen = document.getElementById('cosDenAB');
+    const thetaBox = document.getElementById('thetaDeg');
+    const thetaBox2 = document.getElementById('thetaDeg2');
+    if (!acBox || !abBox || !cosNum || !cosDen || !thetaBox || !thetaBox2) return;
+
+    if (acBox.value !== '' && abBox.value !== ''){
+      // 빨강/초록 박스: 3단계 AC, AB 값을 그대로 표시
+      cosNum.value = acBox.value;
+      cosDen.value = abBox.value;
+
+      const ac = parseFloat(acBox.value);
+      const ab = parseFloat(abBox.value);
+      if (ab !== 0){
+        let ratio = ac / ab;
+        ratio = Math.max(-1, Math.min(1, ratio)); // 부동소수점 오차로 -1~1 범위를 벗어나는 것 방지
+        const thetaDeg = Math.acos(ratio) * 180 / Math.PI;
+        thetaBox.value = thetaDeg.toFixed(1);
+        thetaBox2.value = thetaDeg.toFixed(1);
+      } else {
+        thetaBox.value = '';
+        thetaBox2.value = '';
+      }
+    } else {
+      cosNum.value = '';
+      cosDen.value = '';
+      thetaBox.value = '';
+      thetaBox2.value = '';
+    }
+  }
+
+  computeStage3();
+</script>
+
+</body>
+</html>
