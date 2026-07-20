@@ -149,6 +149,32 @@
     margin-bottom: 0;
   }
 
+  /* 0~2단계 줄 간격을 기존의 75% 수준으로 축소 */
+  .stage-section.compact{
+    margin-bottom: 40.5px;
+  }
+  .stage-section.compact .stage-tag{
+    margin-bottom: 22.5px;
+  }
+  .stage-section.compact .points{
+    gap: 52.5px;
+  }
+  .stage-section.compact .point-col h3{
+    margin: 0 0 10.5px;
+  }
+  .stage-section.compact .coord-block{
+    margin-bottom: 19.5px;
+  }
+  .stage-section.compact .coord-block .axis-label{
+    margin: 0 0 7.5px;
+  }
+  .stage-section.compact .coord-block .diff-label{
+    margin: 0 0 3px;
+  }
+  .stage-section.compact .dms-row{
+    gap: 3px;
+  }
+
   /* ---- 3단계: 공식 + 다이어그램 ---- */
   .formula-line{
     display:flex;
@@ -163,16 +189,29 @@
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    min-width: 130px;
+    width: 90px;
+    min-width: 90px;
+    max-width: 90px;
     height: 40px;
-    padding: 0 10px;
+    padding: 0 4px;
     border: 3px solid #A9C7E8;
     border-radius: 6px;
     background:#ffffff;
     font-family:'Noto Sans KR', sans-serif;
     font-weight:700;
-    font-size: 18px;
+    font-size: 13px;
     color:#1a1a1a;
+    box-sizing:border-box;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .formula-box.orange{
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+    border-color: #E8A87C;
+    font-size: 16px;
   }
 
   .diagram-wrap{
@@ -442,7 +481,7 @@
     <p>목표지점까지의 거리와<br>발사체의 발사 방향을 계산해 봅시다.</p>
   </div>
 
-  <div class="stage-section">
+  <div class="stage-section compact">
   <div class="stage-tag">0단계</div>
 
   <div class="points">
@@ -532,7 +571,7 @@
   </div>
   </div>
 
-  <div class="stage-section">
+  <div class="stage-section compact">
   <div class="stage-tag">1단계</div>
 
   <div class="points">
@@ -579,7 +618,7 @@
   </div>
   </div>
 
-  <div class="stage-section">
+  <div class="stage-section compact">
   <div class="stage-tag">2단계</div>
 
   <div class="points">
@@ -639,6 +678,17 @@
   <div class="formula-line">
     경도 1° = 40,000km ÷ 360° × cos(<i>A</i> 지점 위도) =
     <input type="text" class="formula-box" id="lonMeterPerDeg" readonly tabindex="-1">
+    <span>m</span>
+  </div>
+
+  <div class="formula-line" style="margin-top:24px;">
+    위도 1″ =
+    <input type="text" class="formula-box orange" id="latMeterPerSec" readonly tabindex="-1">
+    <span>m</span>
+  </div>
+  <div class="formula-line">
+    경도 1″ =
+    <input type="text" class="formula-box orange" id="lonMeterPerSec" readonly tabindex="-1">
     <span>m</span>
   </div>
 
@@ -874,6 +924,18 @@
       lonBox.value = lonMeterPerDeg.toFixed(2);
     } else {
       lonBox.value = '';
+    }
+
+    // 위도 1″ = 위도 1° 값 ÷ 3600 (반올림하여 소수점 둘째 자리까지)
+    const latSecBox = document.getElementById('latMeterPerSec');
+    latSecBox.value = (LAT_METER_PER_DEG / 3600).toFixed(2);
+
+    // 경도 1″ = 경도 1° 값 ÷ 3600 (반올림하여 소수점 둘째 자리까지)
+    const lonSecBox = document.getElementById('lonMeterPerSec');
+    if (lonBox.value !== ''){
+      lonSecBox.value = (parseFloat(lonBox.value) / 3600).toFixed(2);
+    } else {
+      lonSecBox.value = '';
     }
 
     computeDistances();
